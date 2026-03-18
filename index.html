@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AI Chat</title>
+
+<style>
+body{
+  margin:0;
+  font-family: Arial;
+  background:#0b0f19;
+  color:white;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+}
+
+header{
+  display:flex;
+  justify-content:space-between;
+  padding:15px;
+  background:#111827;
+}
+
+#chat{
+  flex:1;
+  overflow:auto;
+  padding:20px;
+  max-width:800px;
+  margin:auto;
+}
+
+.msg{
+  padding:12px;
+  margin:10px 0;
+  border-radius:10px;
+  max-width:70%;
+}
+
+.user{
+  background:#2563eb;
+  margin-left:auto;
+}
+
+.bot{
+  background:#1f2937;
+}
+
+#inputBox{
+  display:flex;
+  padding:15px;
+  border-top:1px solid #222;
+  max-width:800px;
+  margin:auto;
+  width:100%;
+}
+
+#input{
+  flex:1;
+  padding:12px;
+  border-radius:8px;
+  border:none;
+  background:#111827;
+  color:white;
+}
+
+button{
+  margin-left:10px;
+  padding:10px 15px;
+  border:none;
+  border-radius:8px;
+  background:#4f46e5;
+  color:white;
+}
+
+#settings{
+  position:fixed;
+  top:0;
+  right:0;
+  width:320px;
+  height:100%;
+  background:#111827;
+  padding:20px;
+  transform:translateX(100%);
+  transition:0.3s;
+}
+
+#settings.show{
+  transform:translateX(0);
+}
+</style>
+
+</head>
+<body>
+
+<header>
+  <h3>AI Chat</h3>
+  <button onclick="toggleSettings()">⚙️</button>
+</header>
+
+<div id="chat"></div>
+
+<div id="inputBox">
+  <input id="input" placeholder="Ask anything...">
+  <button onclick="send()">Send</button>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings">
+  <h2>Settings</h2>
+  <input id="api" placeholder="Enter API Key"><br><br>
+  <input id="model" placeholder="Model (example: mistralai/mistral-7b-instruct)"><br><br>
+  <button onclick="save()">Save</button>
+</div>
+
+<script>
+
+let API = "";
+let MODEL = "";
+
+// Load saved data
+window.onload = function(){
+  API = localStorage.getItem("api") || "";
+  MODEL = localStorage.getItem("model") || "";
+
+  document.getElementById("api").value = API;
+  document.getElementById("model").value = MODEL;
+
+  if(API){
+    addMsg("Hello User 👋 Ready to chat!","bot");
+  }
+}
+
+// Toggle settings panel
+function toggleSettings(){
+  document.getElementById("settings").classList.toggle("show");
+}
+
+// Save API + Model
+function save(){
+  API = document.getElementById("api").value.trim();
+  MODEL = document.getElementById("model").value.trim();
+
+  if(!API || !MODEL){
+    alert("Enter API & Model");
+    return;
+  }
+
+  localStorage.setItem("api", API);
+  localStorage.setItem("model", MODEL);
+
+  document.getElementById("settings").classList.remove("show");
+
+  addMsg("✅ Settings Saved!","bot");
+}
+
+// Add message to chat
+function addMsg(text, cls){
+  let div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.innerText = text;
+  document.getElementById("chat").appendChild(div);
+  document.getElementById("chat").scrollTop = 999999;
+}
+
+// Send message to API
+async function send(){
+  let text = document.getElementById("input").value.trim();
+
+  if(!text) return;
+
+  if(!API || !MODEL){
+    addMsg("⚠️ Please set API & Model first","bot");
+    return;
+  }
+
+  addMsg(text,"user");
+  document.getElementById("input").value = "";
+
+  let loading = document.createElement("div");
+  loading.className="msg bot";
+  loading.innerText="Thinking...";
+  document.getElementById("chat").appendChild(loading);
+
+  try{
+    let res = await fetch("https://openrouter.ai/api/v1/chat/completions",{
+      method:"POST",
+      headers:{
+        "Authorization":"Bearer " + API,
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages:[{role:"user",content:text}]
+      })
+    });
+
+    let data = await res.json();
+    console.log(data);
+
+    loading.remove();
+
+    if(data.error){
+      addMsg("❌ " + data.error.message,"bot");
+      return;
+    }
+
+    let reply = data.choices?.[0]?.message?.content || "No reply";
+    addMsg(reply,"bot");
+
+  }catch(e){
+    loading.remove();
+    addMsg("❌ Network Error","bot");
+  }
+}
+
+</script>
+
+</body>
+</html>
